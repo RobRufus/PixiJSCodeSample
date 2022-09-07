@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2022 by RobRufus (http://jsbin.com/zazoxam/8/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width">
+        <title>JS Bin</title>
+    </head>
+    <body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.0/gsap.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.3.8/pixi.js"></script>
+    <script id="jsbin-javascript">
+const app = new PIXI.Application({
+    width: 500,
+    height: 500,
+    antialias: true,
+    transparent: false,
+    resolution: 1,
+    backgroundColor: 0x1099bb
+});
+
+document.body.appendChild(app.view);
+const stage = app.stage;
+stage.sortableChildren = true;        //for ensuring the buttons are displayer in front of new circles
+console.clear();
+
+
+
+
+
+
+
+class BouncingBall{
+  
+  private _size: number;
+  private _speed: number;
+  private _momentum = new PIXI.Point(0);
+  private circleGraphic = new PIXI.Graphics;
+  
+
+  constructor(size: number){
+        _size = size;
+        _speed = 1;
+    }
+
+
+
+  public generateCircle(){
+    
+    //generates a random color hex code
+    var c = "0x" + Math.floor(Math.random()*16777215).toString(16);
+    
+    this.circleGraphic.beginFill(c);
+    this.circleGraphic.drawCircle(0, 0, _size);
+    this.circleGraphic.endFill();
+    
+    this.circleGraphic.x = _size + (Math.random() * (app.renderer.width - (_size * 2)));
+    this.circleGraphic.y = _size + (Math.random() * (app.renderer.height - (_size * 2)));
+    
+    //Ensures circles stay sorted behind buttons
+    this.circleGraphic.zIndex = 0
+    
+    app.stage.addChild(this.circleGraphic);
+    
+    //annimates circle fade in with randomised duration
+    gsap.from(this.circleGraphic,{duration: "random(0.5,2.5)",  alpha: 0});
+  }
+
+
+  
+  
+  public generateMomentum(){
+   
+   //Create a 2D vector to add to the location of this circle for movement later
+   this._momentum.x = Math.random();
+   this._momentum.y = Math.random();
+
+   //Normalize the magnitude of the momentum vector to ensure consistent ball speed
+   var norm = Math.sqrt(this._momentum.x * this._momentum.x + this._momentum.y * this._momentum.y)
+   this._momentum.x = this._momentum.x / norm
+   this._momentum.y = this._momentum.y / norm
+
+   //Randomize direction of momentum vector (must be randomized for each axis)
+   if (Math.random() >= 0.5){
+     this._momentum.x = -this._momentum.x;
+   }
+   if (Math.random() >= 0.5){
+     this._momentum.y = -this._momentum.y;
+   } 
+   
+  }
+
+
+  get getSize(): number{
+    return _size;
+  }
+
+  get getSpeed(): number{
+    return _speed;
+  }
+  
+  get getMomentum(): PIXI.Point{
+    return this._momentum;
+  }
+  
+  get getCircleGraphic(): PIXI.Graphics{
+    return this.circleGraphic;
+  }
+
+  set setNewMomentum(newMomentum) {
+    this._momentum = newMomentum;
+  }
+
+  set setSpeed(newSpeed) {
+    _speed = newSpeed;
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+class ButtonGeneric{
+  
+  private button: PIXI.Sprite;
+  
+  constructor(x: number, y: number, lx: number, ly: number, text: string){
+        
+        //Generate button sprite with PIXI Graphics
+        var square = new PIXI.Graphics();  
+        square.beginFill(0xDE3249);
+        square.drawRect(0, 0, lx, ly);
+        square.endFill();
+
+        var texture = app.renderer.generateTexture(square);
+        this.button = new PIXI.Sprite(texture);
+        this.button.tint = 0xFF0000;
+        
+        this.button.x = x;
+        this.button.y = y;
+    
+        this.button.interactive = true;
+        this.button.buttonMode = true;
+        this.button.on('pointerdown', this.onButtonDown);
+        this.button.on('pointerdown', this.onClick);
+        this.button.on('pointerup', this.onButtonUp);
+        this.button.on('pointerover', this.onButtonOver);
+        this.button.on('pointerout', this.onButtonOut);
+        
+        //sort above circles
+        this.button.zIndex = 1
+        app.stage.addChild(this.button);
+    
+        //add stylized button text
+        const style = new PIXI.TextStyle({
+        fontFamily: 'Helvetica',
+        fontSize: 14,
+        //fontStyle: 'italic',
+        fontWeight: 'bold',
+        fill: ['#ffffff'], // gradient
+        stroke: '#4a1850',
+        strokeThickness: 4,
+        dropShadow: true,
+        dropShadowColor: '#000000',
+        dropShadowBlur: 2,
+        dropShadowAngle: Math.PI / 6,
+        dropShadowDistance: 4,
+        wordWrap: true,
+        wordWrapWidth: lx,
+        lineJoin: 'round',
+        });
+
+        const richText = new PIXI.Text(text, style);
+        richText.anchor.set(0.5, 0.5);
+        richText.x = (lx/2);
+        richText.y = (ly/2);
+
+        this.button.addChild(richText);
+        
+        //add slide in animation to buttons, staggered manualy;
+        gsap.from(this.button, { duration: (1.2 + 0.2 * buttons.length), alpha: 0, ease: "back.inout(1.7)", x: -170});
+    }
+
+  
+  public onButtonOver() {
+    this.isOver = true;
+    if (this.isdown) {
+        return;
+    }
+    gsap.to(this, { duration: 0.2, ease: "power1.in", x: 40});
+  }
+
+  public onButtonOut() {
+    this.isOver = false;
+    if (this.isdown) {
+        return;
+    }
+    gsap.to(this, { duration: 0.2, ease: "power1.in", x: 20 });
+  }
+
+  
+  public onButtonDown() {
+    this.isdown = true;
+    this.tint = 0xCC0000;
+    
+  }
+  
+  
+  public onButtonUp() {
+    this.isdown = false;
+    this.tint = 0xFF0000;
+  }
+  
+
+  public onClick() {
+    console.log("Override this event for button functionality");
+  }
+
+  
+  get getButtonGraphic(): PIXI.Graphics{
+    return this.button;
+  }
+  
+}
+
+
+
+
+
+
+
+
+
+
+/* 
+    For each type of button, override inherited onClick event with
+    desired functionality. 
+*/
+
+
+class ButtonPausePlay extends ButtonGeneric{
+
+  public onClick() {    
+    if(paused === true){
+      paused = false;
+    } 
+    else { paused = true; }
+  }
+}
+
+
+
+class ButtonNewBall extends ButtonGeneric{
+
+  public onClick() {
+    var newIndex = balls.length;
+    
+    balls.push(new BouncingBall(10));
+    
+    balls[newIndex].generateCircle();
+    balls[newIndex].generateMomentum();
+  }
+}
+
+
+class ButtonRemoveBall extends ButtonGeneric{
+  
+  public onClick() {    
+    if(balls.length - 1 > 0){
+
+      var thisBall = balls[balls.length - 1].getCircleGraphic;
+    
+      gsap.to(thisBall,{duration: 0.5,  alpha: 0, onComplete: function() {
+         thisBall.destroy();
+      }});
+    
+      balls.pop();
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+//SETUP THE FIRST 25 BALLS, THE CONTROL BUTTONS AND THE PAUSE FLAG
+
+var balls = [];
+for(let i = 0; i < 25; i++){
+  balls[i] = new BouncingBall(10);
+  balls[i].generateCircle();
+  balls[i].generateMomentum();
+}
+
+var buttons = [];
+buttons.push(new ButtonPausePlay(20, 20, 100, 50, "Pause / Play"));
+buttons.push(new ButtonNewBall(20, 80, 100, 50, "New Ball"));
+buttons.push(new ButtonRemoveBall(20, 140, 100, 50, "Remove Ball"));
+
+var paused = false;
+
+
+
+
+
+//UPDATE CIRCLE POSITION OVER TIME
+
+/* 
+    For each circle, find it's location after being updated this tick,
+    if this tick of movement would take the circle out of bounds then 
+    reverse the momentum of the circle on that axis.
+*/
+
+
+app.ticker.add((delta) => {
+    
+  if(!paused){
+    for(let i = 0; i < balls.length; i++){
+    
+      var futureXLocation = balls[i].getCircleGraphic.x + balls[i].getMomentum.x  * balls[i].getSpeed * delta;
+      var futureYLocation = balls[i].getCircleGraphic.y + balls[i].getMomentum.y  * balls[i].getSpeed * delta;
+    
+      if(futureXLocation - balls[i].getSize < 1 || futureXLocation + balls[i].getSize > app.renderer.width){
+          var updateMomentum = new PIXI.Point();
+          updateMomentum.x = -balls[i].getMomentum.x;
+          updateMomentum.y = balls[i].getMomentum.y;
+          balls[i].setNewMomentum = updateMomentum;
+      }
+    
+      if(futureYLocation - balls[i].getSize < 1 || futureYLocation + balls[i].getSize > app.renderer.height){
+          var updateMomentum = new PIXI.Point();
+          updateMomentum.x = balls[i].getMomentum.x;
+          updateMomentum.y = -balls[i].getMomentum.y;
+          balls[i].setNewMomentum = updateMomentum;
+      }
+    
+      balls[i].getCircleGraphic.x += balls[i].getMomentum.x * balls[i].getSpeed * delta;
+      balls[i].getCircleGraphic.y += balls[i].getMomentum.y * balls[i].getSpeed * delta;
+    }
+  }
+
+});
+
+
+
+
+
+
+
+</script>
+</body>
+</html>
